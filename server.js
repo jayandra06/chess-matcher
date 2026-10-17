@@ -6,8 +6,8 @@ const path = require("path");
 const os = require("os");
 const { execFileSync } = require("child_process");
 const dns = require("dns");
-const { MongoClient } = require("mongodb");
 try { dns.setServers(["8.8.8.8", "8.8.4.4"]); } catch (e) {}
+const store = require("./lib/store");
 
 const ROOT = __dirname;
 const PORT = Number(process.env.PORT) || 8080;
@@ -22,6 +22,18 @@ function registrationPath() {
   if (fs.existsSync(local)) return local;
   return "";
 }
+
+function registrationRows() {
+  const file = registrationPath();
+  if (!file) return null;
+  try {
+    const wb = XLSX.read(fs.readFileSync(file), { type: "buffer" });
+    return XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { defval: "" });
+  } catch (err) {
+    return null;
+  }
+}
+
 const MAX_BYTES = 20 * 1024 * 1024;
 
 const MIME = {
@@ -165,49 +177,6 @@ function copyOverLive(tmp) {
   throw lastError;
 }
 
-function roundRows(wb, round) {
-  const sheet = wb.Sheets["Round " + round];
-  if (!sheet) return [];
-  return XLSX.utils.sheet_to_json(sheet, { defval: "" });
-}
-
-function filled(value) {
-  return String(value == null ? "" : value).trim();
-}
-
-function mergeWorkbooks(currentBuf, incomingBuf) {
-  const current = XLSX.read(currentBuf, { type: "buffer" });
-  const incoming = XLSX.read(incomingBuf, { type: "buffer" });
-  const resultKey = "Result (Winner / Draw)";
-  const roundNumbers = new Set();
-  for (const name of current.SheetNames.concat(incoming.SheetNames)) {
-    const match = /^Round (\d+)$/.exec(name);
-    if (match) roundNumbers.add(Number(match[1]));
-  }
-  for (const round of [...roundNumbers].sort((a, b) => a - b)) {
-    const byTable = new Map();
-    for (const row of roundRows(current, round)) byTable.set(Number(row.Table), row);
-    for (const row of roundRows(incoming, round)) {
-      const table = Number(row.Table);
-      const previous = byTable.get(table);
-      if (!previous) {
-        byTable.set(table, row);
-        continue;
-      }
-      const merged = Object.assign({}, previous, row);
-      if (filled(previous[resultKey]) && !filled(row[resultKey])) merged[resultKey] = previous[resultKey];
-      for (const key of ["Player 1", "Player 2"]) {
-        if (filled(previous[key]) && !filled(row[key])) merged[key] = previous[key];
-      }
-      byTable.set(table, merged);
-    }
-    const rows = [...byTable.values()].filter((row) => [6, 7, 8, 9, 10].includes(Number(row.Table)));
-    rows.sort((a, b) => Number(a.Table) - Number(b.Table));
-    if (rows.length) incoming.Sheets["Round " + round] = XLSX.utils.json_to_sheet(rows);
-  }
-  return XLSX.write(incoming, { bookType: "xlsx", type: "buffer" });
-}
-
 function saveBuffer(buf, clientRevision) {
   if (buf.length < 4 || buf[0] !== 0x50 || buf[1] !== 0x4b) {
     return { code: 400, body: { error: "That was not an Excel file." } };
@@ -217,7 +186,7 @@ function saveBuffer(buf, clientRevision) {
     const currentRevision = revisionOf(LIVE);
     if (clientRevision && clientRevision !== currentRevision) {
       try {
-        buf = mergeWorkbooks(fs.readFileSync(LIVE), buf);
+        buf = store.mergeWorkbooks(fs.readFileSync(LIVE), buf);
         merged = true;
       } catch (err) {
         console.log("Kept the newest score file because the two copies could not be combined: " + err.message);
@@ -261,52 +230,9 @@ function saveBuffer(buf, clientRevision) {
   };
 }
 
-function mongoUri() {
-  const file = path.join(process.env.USERPROFILE || "", "OneDrive", "Desktop", "asia by gram", "ASIA_BY_GRAM", ".env");
-  try {
-    const text = fs.readFileSync(file, "utf8");
-    const found = text.match(/^MONGODB_URI=(.*)$/m);
-    return found ? found[1].trim() : "";
-  } catch (err) {
-    return "";
-  }
-}
-
-let mongoClient = null;
-async function competitionCollection() {
-  const uri = mongoUri();
-  if (!uri) throw new Error("The database address is not set.");
-  if (!mongoClient) mongoClient = new MongoClient(uri, { serverSelectionTimeoutMS: 8000, family: 4 });
-  await mongoClient.connect();
-  return mongoClient.db("test").collection("competition");
-}
-
-function sheetRows(wb, name) {
-  const sheet = wb.Sheets[name];
-  if (!sheet) return [];
-  return XLSX.utils.sheet_to_json(sheet, { defval: "" });
-}
-
 async function syncCompetition() {
-  const wb = XLSX.read(fs.readFileSync(LIVE), { type: "buffer" });
-  const rounds = {};
-  for (const name of wb.SheetNames) {
-    const found = /^Round (\d+)$/.exec(name);
-    if (found) rounds[found[1]] = sheetRows(wb, name);
-  }
-  const doc = {
-    kind: "tournament",
-    competition: "Chess Championship 2026",
-    updatedAt: new Date(),
-    players: sheetRows(wb, "Players"),
-    rounds,
-    matches: sheetRows(wb, "All Matches"),
-    standings: sheetRows(wb, "Standings"),
-    settings: sheetRows(wb, "Settings")
-  };
-  const collection = await competitionCollection();
-  await collection.replaceOne({ _id: "live-tournament" }, doc, { upsert: true });
-  console.log("Saved the live tournament into the competition collection.");
+  const saved = await store.syncFile(LIVE, registrationRows());
+  console.log("Saved the live tournament into the competition collection. Rounds stored: " + saved.rounds + ".");
 }
 
 const server = http.createServer(async (req, res) => {
@@ -323,6 +249,8 @@ const server = http.createServer(async (req, res) => {
       sendJson(res, 200, {
         liveFile: "Chess_Tournament_Live.xlsx",
         usingLive: fs.existsSync(LIVE),
+        database: true,
+        storage: "excel+mongodb",
         revision: revisionOf(workbookPath()),
         urls: ["http://localhost:" + port, ...lanUrls(port)]
       });

@@ -1,4 +1,12 @@
 {
+  "name": "chess-matcher",
+  "private": true,
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "start": "node server.js"
+  },
   "dependencies": {
     "mongodb": "^7.7.0"
   }

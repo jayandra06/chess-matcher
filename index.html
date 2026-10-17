@@ -52,7 +52,8 @@ button,input,select{font:inherit}button{cursor:pointer;border:1px solid var(--li
         </section>
       </div>
       <div class="rightstack">
-        <section class="panel"><div class="panelhead"><h2>Semi-finals</h2><span class="pill">5 games done</span></div><div id="semiList"></div></section>
+        <section class="panel"><div class="panelhead"><h2>Semi-finals</h2><span class="pill">5 games or 5 wins</span></div><div id="semiList"></div></section>
+        <section class="panel"><div class="panelhead"><h2>Disqualified</h2><span class="pill absent">3 losses</span></div><div id="outList"></div></section>
         <section class="panel"><div class="panelhead"><h2>Current Standings</h2><button data-goto="standings">Full view →</button></div><div id="topStandings"></div></section>
         <section class="panel"><div class="panelhead"><h2>Absent players</h2></div><div id="absentList"></div></section>
       </div>
@@ -136,18 +137,29 @@ const GAMES_EACH=5;
 function blankRound(){return TABLES.map(table=>({table,p1:"",p2:"",result:""}))}
 function orderRound(list){return (list||[]).slice().sort((a,b)=>Number(a.table)-Number(b.table))}
 function roundList(){return Object.keys(rounds).map(Number).filter(n=>n>0).sort((a,b)=>a-b)}
-function gamesBefore(name,round){
- let games=0;
- if(!name)return 0;
+function tallyBefore(name,round){
+ let games=0,wins=0,losses=0;
+ if(!name)return {games,wins,losses};
  for(const r of roundList()){
-  if(r>=round)break;
+  if(round!=null&&r>=round)break;
   for(const m of rounds[r]||[]){
-   if(m.p1&&m.p2&&m.result&&m.result!=="Not played"&&(m.p1===name||m.p2===name))games++;
+   if(!m.p1||!m.p2||!m.result||m.result==="Not played"||(m.p1!==name&&m.p2!==name))continue;
+   games++;
+   if(m.result==="Draw")continue;
+   const winner=m.result==="P1"?m.p1:m.p2;
+   if(winner===name)wins++; else losses++;
   }
  }
- return games;
+ return {games,wins,losses};
 }
-function canSit(name,round){return !!name&&gamesBefore(name,round)<GAMES_EACH}
+function gamesBefore(name,round){return tallyBefore(name,round).games}
+function canSit(name,round){
+ const t=tallyBefore(name,round);
+ return !!name&&t.losses<3&&t.wins<5&&t.games<GAMES_EACH;
+}
+function isOut(p){return stats(p.name).losses>=3}
+function isDone(p){const s=stats(p.name);return s.losses<3&&(s.wins>=5||s.games>=GAMES_EACH)}
+function stillIn(p){return p.attendance!=="Absent"&&!isOut(p)&&!isDone(p)}
 function movementSeats(prevRound){
  const target=prevRound+1;
  const stayer={},arrival={};
@@ -194,34 +206,15 @@ function enforcePlacements(){
   if(!done)break;
   lastComplete=r;
  }
- if(lastComplete&&rounds[lastComplete+1]){
-  const next=rounds[lastComplete+1];
-  if(next.some(m=>m.result&&m.result!=="Not played"))return;
-  applyMovement(lastComplete+1,lastComplete);
- }
+ if(!lastComplete)return;
+ const nextNo=lastComplete+1;
+ if(!rounds[nextNo])rounds[nextNo]=blankRound();
+ if((rounds[nextNo]||[]).some(m=>m.result&&m.result!=="Not played"))return;
+ applyMovement(nextNo,lastComplete);
 }
 function placeNextRound(prevRound){
  const seats=movementSeats(prevRound);
- const used=new Set();
- const slots=TABLES.map(table=>{
-  const seat=seats[table]||{p1:"",p2:""};
-  if(seat.p1)used.add(seat.p1);
-  if(seat.p2)used.add(seat.p2);
-  return {table,p1:seat.p1,p2:seat.p2,result:""};
- });
- const target=prevRound+1;
- const waiting=players.filter(p=>p.attendance!=="Absent"&&canSit(p.name,target)&&!used.has(p.name));
- waiting.sort((a,b)=>gamesBefore(a.name,target)-gamesBefore(b.name,target)||a.name.localeCompare(b.name));
- for(const slot of slots){
-  for(const key of ["p1","p2"]){
-   if(slot[key])continue;
-   const pick=waiting.find(p=>!used.has(p.name));
-   if(!pick)break;
-   slot[key]=pick.name;
-   used.add(pick.name);
-  }
- }
- return slots;
+ return TABLES.map(table=>{const seat=seats[table]||{p1:"",p2:""};return {table,p1:seat.p1||"",p2:seat.p2||"",result:""}});
 }
 function addRound(){
  const list=roundList();
@@ -256,7 +249,8 @@ function tablesAfterRound(upto){
  }
  return current;
 }
-function semiFinalists(){return allStats().filter(p=>p.games>=GAMES_EACH)}
+function semiFinalists(){return allStats().filter(isDone)}
+function disqualified(){return allStats().filter(isOut)}
 function reseatFollowingRound(fromRound){
  if(!rounds[fromRound+1])return;
  applyMovement(fromRound+1,fromRound);
@@ -366,7 +360,11 @@ function renderMatches(target){
 }
 function renderSemis(){
  const arr=semiFinalists();
- $("semiList").innerHTML=arr.length?arr.map((p,i)=>`<div style="padding:8px 0;border-bottom:1px solid var(--line)"><b>${i+1}. ${esc(p.name)}</b><br><span class="pill present">Semi-finals</span> ${p.points} pts · ${p.wins} wins</div>`).join(""):'<div class="muted">A player moves here after 5 games. They are no longer placed on tables 6–10.</div>';
+ $("semiList").innerHTML=arr.length?arr.map((p,i)=>`<div style="padding:8px 0;border-bottom:1px solid var(--line)"><b>${i+1}. ${esc(p.name)}</b><br><span class="pill present">Will not play</span> ${p.wins} wins · ${p.games} games</div>`).join(""):'<div class="muted">A player stops after 5 games or 5 wins. They are not placed on tables 6–10 again.</div>';
+ if($("outList")){
+  const out=disqualified();
+  $("outList").innerHTML=out.length?out.map(p=>`<div style="padding:8px 0;border-bottom:1px solid var(--line)"><b>${esc(p.name)}</b><br><span class="pill absent">Disqualified</span> ${p.losses} losses</div>`).join(""):'<div class="muted">A player is out after 3 losses.</div>';
+ }
 }
 function renderTopStandings(){
  const arr=allStats().slice(0,10);
@@ -374,7 +372,7 @@ function renderTopStandings(){
 }
 function renderStandings(){
  const arr=allStats();
- $("standingsTable").innerHTML=`<div class="tablewrap"><table><thead><tr><th>#</th><th>Player</th><th>Current Table</th><th>Games</th><th>Wins</th><th>Draws</th><th>Losses</th><th>Points</th><th>Remaining</th><th>Status</th></tr></thead><tbody>${arr.map((p,i)=>`<tr><td>${i+1}</td><td>${esc(p.name)}</td><td>${p.table||"—"}</td><td>${p.games}</td><td>${p.wins}</td><td>${p.draws}</td><td>${p.losses}</td><td><b>${p.points}</b></td><td>${p.remaining}</td><td>${p.attendance==="Absent"&&p.games<GAMES_EACH?'<span class="pill absent">Absent</span>':p.games>=GAMES_EACH?'<span class="pill present">Semi-finals</span>':'<span class="pill">Needs '+(GAMES_EACH-p.games)+'</span>'}</td></tr>`).join("")}</tbody></table></div>`;
+ $("standingsTable").innerHTML=`<div class="tablewrap"><table><thead><tr><th>#</th><th>Player</th><th>Current Table</th><th>Games</th><th>Wins</th><th>Draws</th><th>Losses</th><th>Points</th><th>Remaining</th><th>Status</th></tr></thead><tbody>${arr.map((p,i)=>`<tr><td>${i+1}</td><td>${esc(p.name)}</td><td>${p.table||"—"}</td><td>${p.games}</td><td>${p.wins}</td><td>${p.draws}</td><td>${p.losses}</td><td><b>${p.points}</b></td><td>${p.remaining}</td><td>${isOut(p)?'<span class="pill absent">Disqualified</span>':isDone(p)?'<span class="pill present">Will not play</span>':p.attendance==="Absent"?'<span class="pill absent">Absent</span>':'<span class="pill">Needs '+(GAMES_EACH-p.games)+'</span>'}</td></tr>`).join("")}</tbody></table></div>`;
 }
 function renderPlayers(){
  const q=($("playerSearch")?.value||"").toLowerCase();
@@ -389,18 +387,18 @@ function renderAbsent(){
  $("absentList").innerHTML=arr.length?arr.map(p=>`<div style="padding:8px 0;border-bottom:1px solid var(--line)"><b>${esc(p.name)}</b><br><span class="pill absent">Absent</span></div>`).join(""):'<div class="muted">No absent players marked.</div>';
 }
 function renderMovement(){
- $("movementSummary").innerHTML=`<div class="rule"><b>Winner:</b> stays at the same table. A win at Table 6 means the next game is also at Table 6.</div><div class="rule"><b>Loser:</b> moves to the next table: 6 → 7, 7 → 8, 8 → 9, 9 → 10${rules.wrapTop?", and 10 → 6":""}.</div><div class="rule">A typed name that breaks the rule is put back. The winner stays, the loser moves up, and a player with 5 games goes to the semi-finals instead of the next table.</div>`;
+ $("movementSummary").innerHTML=`<div class="rule"><b>Winner:</b> stays at the same table. A win at Table 6 means the next game is also at Table 6.</div><div class="rule"><b>Loser:</b> moves to the next table: 6 → 7, 7 → 8, 8 → 9, 9 → 10${rules.wrapTop?", and 10 → 6":""}.</div><div class="rule">Three losses and the player is disqualified. Five wins, or five games, and the player does not sit again. A winner stays. A loser who is still in moves one table up.</div>`;
 }
 function renderAll(refreshTabs=true){
  for(const r of roundList()) rounds[r]=orderRound(rounds[r]);
  recomputeTables();
- const short=players.filter(p=>p.attendance!=="Absent"&&stats(p.name).games<GAMES_EACH);
+ const short=players.filter(stillIn);
  $("mPlayers").textContent=players.length;$("mPresent").textContent=players.filter(p=>p.attendance==="Present").length;$("mAbsent").textContent=players.filter(p=>p.attendance==="Absent").length;
  if($("mRounds"))$("mRounds").textContent=roundList().length;
  $("roundHeading").textContent=`Round ${activeRound} Matches`;
  const last=roundList();
  const nextRound=(last.length?last[last.length-1]:0)+1;
- if($("gamesNeed"))$("gamesNeed").textContent=short.length?`${short.length} players still need games to reach 5. Add round places the next tables from the last results: winners stay, losers move up, and anyone with 5 games goes to the semi-finals.`:`Everyone still in the tables has 5 games. They are in the semi-finals.`;
+ if($("gamesNeed"))$("gamesNeed").textContent=short.length?`${short.length} players can still be seated. Three losses disqualifies a player. Five wins, or five games, means they do not play again.`:`No one left to seat. Finished players and players with 3 losses are out of tables 6–10.`;
  if(refreshTabs){renderRoundTabs("roundTabs");renderRoundTabs("roundTabs2")}
  renderMatches("matchesTable");renderMatches("matchesTable2");renderSemis();renderTopStandings();renderStandings();renderPlayers();renderAbsent();renderMovement();
 }
@@ -421,7 +419,7 @@ function autoPair(){
  const locked=existing.filter(m=>m.p1&&m.p2&&m.result&&m.result!=="Not played");
  const used=new Set();
  locked.forEach(m=>{used.add(m.p1);used.add(m.p2)});
- const need=players.filter(p=>p.attendance==="Present"&&!used.has(p.name)&&stats(p.name).games<GAMES_EACH);
+ const need=players.filter(p=>stillIn(p)&&!used.has(p.name));
  need.sort((a,b)=>stats(b.name).remaining-stats(a.name).remaining||(Number(a.table)||6)-(Number(b.table)||6)||stats(b.name).points-stats(a.name).points);
  const eligible=need;
  const slots=TABLES.map(table=>{
@@ -430,7 +428,7 @@ function autoPair(){
  });
  for(const slot of slots){
   if(slot.p1&&slot.p2) continue;
-  let pool=eligible.filter(p=>!used.has(p.name)&&stats(p.name).games<GAMES_EACH);
+  let pool=eligible.filter(p=>!used.has(p.name));
   if(pool.length<2) pool=eligible.filter(p=>!used.has(p.name));
   let at=pool.filter(p=>Number(p.table)===slot.table);
   if(at.length<2) at=pool;
@@ -538,7 +536,7 @@ function buildWorkbook(){
   XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(rows),"Round "+r);
  }
  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(all),"All Matches");
- const standings=allStats().map((p,i)=>({"Rank":i+1,"Player Name":p.name,"Current Table":p.table,"Games Played":p.games,"Wins":p.wins,"Draws":p.draws,"Losses":p.losses,"Total Points":p.points,"Games Remaining":p.remaining,"Status":p.attendance==="Absent"&&p.games<GAMES_EACH?"Absent":p.games>=GAMES_EACH?"Semi-finals":"Needs "+p.remaining}));
+ const standings=allStats().map((p,i)=>({"Rank":i+1,"Player Name":p.name,"Current Table":p.table,"Games Played":p.games,"Wins":p.wins,"Draws":p.draws,"Losses":p.losses,"Total Points":p.points,"Games Remaining":p.remaining,"Status":isOut(p)?"Disqualified":isDone(p)?"Will not play":p.attendance==="Absent"?"Absent":"Needs "+p.remaining}));
  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(standings),"Standings");
  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet([{"Wrap top loser to table 6":rules.wrapTop?"Yes":"No","Loser movement":"Winner stays. Loser moves to the next higher table. Table 10 loser goes to Table 6."}]),"Settings");
  return wb;
@@ -549,15 +547,25 @@ function exportFile(){
 }
 function showHost(info){
  const others=(info.urls||[]).filter(u=>!/localhost|127\.0\.0\.1/.test(u));
+ if(info.storage==="mongodb"){
+  $("fileStatus").textContent="Saved in the database";
+  $("fileInfo").textContent="This page shows the tournament stored in the competition collection.";
+  $("notice").className="notice good";
+  $("notice").innerHTML="Every score on this page is the score stored in the database. A change here is written back to that same collection.";
+  hostNotice=$("notice").innerHTML;
+  if($("excelHelp")) $("excelHelp").innerHTML="This page reads and writes the tournament in the database. Download Excel copy saves a file on the device you are using.";
+  ["exportBtn","exportBtn2","exportBtn3"].forEach(id=>{if($(id))$(id).textContent="Download Excel copy"});
+  return;
+ }
  $("fileStatus").textContent="Hosted on this PC";
  $("fileInfo").textContent=others.length?("Other devices on this Wi-Fi open "+others.join("   ")):("Connect this PC to Wi-Fi, then restart the host, to get an address for other devices.");
  const links=others.map(u=>`<a href="${esc(u)}">${esc(u)}</a>`).join("<br>");
  $("notice").className="notice good";
  $("notice").innerHTML=others.length
-  ?`Phones and laptops on the same Wi-Fi open:<br><b>${links}</b><br>A change on this PC shows on the phone, and a change on the phone shows on this PC. Both write into <b>Chess_Tournament_Live.xlsx</b>.`
-  :`Scores are saved on this PC in <b>Chess_Tournament_Live.xlsx</b>. Connect this PC to Wi-Fi and restart the host to get an address other devices can open.`;
+  ?`Phones and laptops on the same Wi-Fi open:<br><b>${links}</b><br>A change on this PC shows on the phone, and a change on the phone shows on this PC. Both write into <b>Chess_Tournament_Live.xlsx</b> and into the database, so this page shows the same scores that are stored there.`
+  :`Scores are saved on this PC in <b>Chess_Tournament_Live.xlsx</b> and in the database. This page shows those scores.`;
  hostNotice=$("notice").innerHTML;
- if($("excelHelp")) $("excelHelp").innerHTML="This page is hosted on this PC. Every score is written into <b>Chess_Tournament_Live.xlsx</b> in this folder. The original Chess_Tournament_Tracker.xlsx stays unchanged. Download Excel copy saves an extra file on the device you are using.";
+ if($("excelHelp")) $("excelHelp").innerHTML="This page is hosted on this PC. Every score is written into <b>Chess_Tournament_Live.xlsx</b> and into the database. The original Chess_Tournament_Tracker.xlsx stays unchanged. Download Excel copy saves an extra file on the device you are using.";
  ["exportBtn","exportBtn2","exportBtn3"].forEach(id=>{if($(id))$(id).textContent="Download Excel copy"});
 }
 function scheduleSave(){
@@ -600,7 +608,9 @@ async function saveToServer(){
   }
   pendingSave=false;
   await loadFromServer();
-  $("fileStatus").textContent=data.merged?"Saved and combined with the other device":"Saved. The phone and this PC stay in sync.";
+  $("fileStatus").textContent=data.storage==="mongodb"
+   ?(data.merged?"Saved in the database and combined with the other device":"Saved in the database")
+   :(data.database?(data.merged?"Saved in Excel and the database, combined with the other device":"Saved in Excel and the database"):(data.merged?"Saved and combined with the other device":"Saved. The phone and this PC stay in sync."));
   if(hostNotice){$("notice").className="notice good";$("notice").innerHTML=hostNotice}
  }catch(err){
   pendingSave=true;
