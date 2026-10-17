@@ -1,0 +1,713 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Chess Tournament Manager</title>
+<style>
+:root{--ink:#182230;--muted:#64748b;--line:#e2e8f0;--bg:#f5f7fb;--blue:#2563eb;--blue2:#eff6ff;--green:#15803d;--red:#b91c1c;--white:#fff}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);font:14px/1.45 Inter,ui-sans-serif,system-ui,-apple-system,Segoe UI,Arial;color:var(--ink)}
+button,input,select{font:inherit}button{cursor:pointer;border:1px solid var(--line);background:#fff;border-radius:9px;padding:9px 12px;color:var(--ink);font-weight:650}button.primary{background:var(--blue);border-color:var(--blue);color:#fff}button.green{background:#16a34a;border-color:#16a34a;color:#fff}button.danger{color:var(--red)}button:hover{filter:brightness(.98)}.app{display:grid;grid-template-columns:230px minmax(0,1fr);min-height:100vh}.sidebar{background:#fff;border-right:1px solid var(--line);padding:22px 14px;display:flex;flex-direction:column;gap:20px}.brand{font-size:18px;font-weight:800;display:flex;gap:10px;align-items:center;padding:0 8px 12px}.brand .piece{font-size:27px}.nav{display:grid;gap:5px}.nav button{text-align:left;background:transparent;border-color:transparent;font-weight:600}.nav button.active{background:var(--blue2);color:var(--blue)}.filebox{margin-top:auto;border:1px solid #bbf7d0;background:#f0fdf4;border-radius:12px;padding:12px;font-size:12px;color:#166534}#fileInfo{word-break:break-all}.main{padding:24px;min-width:0;max-width:1800px;width:100%;margin:auto}.top{display:flex;justify-content:space-between;gap:16px;align-items:flex-start;margin-bottom:18px}.eyebrow{color:var(--muted);font-size:13px}.title{font-size:28px;font-weight:800;letter-spacing:-.03em;margin:0 0 4px}.actions{display:flex;gap:8px;flex-wrap:wrap}.metrics{display:grid;grid-template-columns:repeat(5,minmax(120px,1fr));gap:12px;margin-bottom:18px}.metric,.panel{background:#fff;border:1px solid var(--line);border-radius:13px}.metric{padding:15px}.metric strong{font-size:24px;display:block}.metric span{color:var(--muted);font-size:12px}.layout{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:16px}.panel{padding:16px;margin-bottom:16px;min-width:0}.panelhead{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:13px}.panel h2{font-size:17px;margin:0}.tabs{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:14px}.tabs button.active{background:var(--blue);color:#fff;border-color:var(--blue)}.tablewrap{overflow:auto;border:1px solid var(--line);border-radius:9px}table{border-collapse:collapse;width:100%;min-width:650px}th,td{padding:10px 11px;text-align:left;border-bottom:1px solid var(--line);vertical-align:middle}th{background:#f8fafc;color:#475569;font-size:12px;white-space:nowrap}tr:last-child td{border-bottom:0}td select,td input{width:100%;min-width:120px;border:1px solid #cbd5e1;border-radius:7px;padding:7px;background:#fff}td .short{min-width:70px}.muted{color:var(--muted)}.pill{display:inline-flex;border-radius:999px;padding:3px 8px;font-size:11px;font-weight:700;background:#f1f5f9;color:#475569}.pill.present{background:#dcfce7;color:#166534}.pill.absent{background:#fee2e2;color:#991b1b}.rightstack{min-width:0}.search{width:100%;border:1px solid #cbd5e1;border-radius:8px;padding:10px;margin-bottom:10px}.smalltable{min-width:0}.smalltable th,.smalltable td{padding:8px 6px;font-size:12px}.rule{padding:10px 12px;background:#f8fafc;border-radius:8px;margin:7px 0;color:#475569}.hidden{display:none!important}.notice{background:#fffbeb;border:1px solid #fde68a;border-radius:9px;padding:11px;color:#92400e;margin-bottom:14px}.good{background:#f0fdf4;border:1px solid #bbf7d0;color:#166534}.formrow{display:flex;gap:10px;flex-wrap:wrap;align-items:center}.formrow input{border:1px solid #cbd5e1;border-radius:8px;padding:9px}.playerlist{max-height:580px;overflow:auto}.empty{text-align:center;padding:28px;color:var(--muted)}.picker{position:relative;min-width:170px}.picker-input{width:100%;border:1px solid #cbd5e1;border-radius:7px;padding:7px 8px;background:#fff;font-size:16px}.picker-list{position:fixed;z-index:30;background:#fff;border:1px solid var(--line);border-radius:8px;max-height:240px;overflow:auto;box-shadow:0 10px 28px rgba(15,23,42,.16)}.picker-list button{display:block;width:100%;text-align:left;border:0;border-radius:0;background:#fff;padding:8px 10px;font-weight:550}.picker-list button:hover,.picker-list button.active{background:var(--blue2);color:var(--blue)}footer{color:var(--muted);font-size:12px;padding:4px 2px 16px}
+@media(max-width:1050px){.layout{grid-template-columns:1fr}.rightstack{display:grid;grid-template-columns:1fr 1fr;gap:12px}.metrics{grid-template-columns:repeat(3,1fr)}}@media(max-width:720px){.app{grid-template-columns:1fr}.sidebar{border-right:0;border-bottom:1px solid var(--line);padding:12px}.brand{padding-bottom:0}.nav{grid-template-columns:repeat(3,1fr)}.nav button{font-size:12px;padding:8px}.filebox{margin-top:0}.main{padding:14px}.top{display:block}.actions{margin-top:12px}.metrics{grid-template-columns:repeat(2,1fr)}.rightstack{display:block}.title{font-size:23px}}
+</style>
+</head>
+<body>
+<div class="app">
+<aside class="sidebar">
+  <div class="brand"><span class="piece">♞</span><span>Chess Tournament</span></div>
+  <nav class="nav" id="nav">
+    <button class="active" data-view="dashboard">▦ &nbsp; Dashboard</button>
+    <button data-view="players">♙ &nbsp; Players</button>
+    <button data-view="matches">♟ &nbsp; Round Pairings</button>
+    <button data-view="standings">☷ &nbsp; Standings</button>
+    <button data-view="excel">▤ &nbsp; Excel Data</button>
+    <button data-view="settings">⚙ &nbsp; Rules & Settings</button>
+  </nav>
+  <div class="filebox"><strong id="fileStatus">Local workbook mode</strong><p id="fileInfo">Import your Excel file to load the registered players. Changes stay in this browser until exported.</p><button id="sidebarImport">Import Excel</button></div>
+</aside>
+<main class="main">
+  <div class="top">
+    <div><div class="eyebrow">CHESS COMPETITION / TOURNAMENT DESK</div><h1 class="title" id="pageTitle">Chess Competition</h1><div class="muted">Every present player needs 5 games · Tables 6–10 · Add rounds until that is done</div></div>
+    <div class="actions"><button id="importBtn">Import Excel</button><button class="green" id="exportBtn">Export Updated Excel</button></div>
+  </div>
+  <div id="notice" class="notice">This is a browser-based app. Import your workbook to use its roster. After entering results, click <b>Export Updated Excel</b> to download the updated workbook; a plain HTML page cannot silently overwrite a file on your computer.</div>
+  <section id="view-dashboard">
+    <div class="metrics">
+      <div class="metric"><strong id="mPlayers">19</strong><span>Unique players loaded</span></div>
+      <div class="metric"><strong id="mPresent">17</strong><span>Marked present</span></div>
+      <div class="metric"><strong id="mAbsent">2</strong><span>Marked absent</span></div>
+      <div class="metric"><strong id="mRounds">5</strong><span>Rounds open</span></div>
+      <div class="metric"><strong>5</strong><span>Tables (6–10)</span></div>
+    </div>
+    <div class="layout">
+      <div>
+        <section class="panel">
+          <div class="panelhead"><div><h2 id="roundHeading">Round 1 Matches</h2><div class="muted" id="gamesNeed">Select the result for each table. Add another round whenever players still need a game.</div></div><div class="actions"><button id="addRoundBtn">Add round</button><button id="autoPairBtn">Auto-pair this round</button></div></div>
+          <div class="tabs" id="roundTabs"></div>
+          <div id="matchesTable"></div>
+        </section>
+        <section class="panel">
+          <div class="panelhead"><h2>Table movement</h2><span class="pill">Editable rules</span></div>
+          <div id="movementSummary"></div>
+        </section>
+      </div>
+      <div class="rightstack">
+        <section class="panel"><div class="panelhead"><h2>Semi-finals</h2><span class="pill">5 games done</span></div><div id="semiList"></div></section>
+        <section class="panel"><div class="panelhead"><h2>Current Standings</h2><button data-goto="standings">Full view →</button></div><div id="topStandings"></div></section>
+        <section class="panel"><div class="panelhead"><h2>Absent players</h2></div><div id="absentList"></div></section>
+      </div>
+    </div>
+  </section>
+  <section id="view-players" class="hidden">
+    <div class="panel"><div class="panelhead"><h2>Player roster</h2><div class="formrow"><input id="playerSearch" placeholder="Search name or phone"><button id="addPlayerBtn">Add player</button></div></div><div id="playersTable"></div></div>
+  </section>
+  <section id="view-matches" class="hidden">
+    <div class="panel"><div class="panelhead"><h2>Round pairings & score entry</h2><div class="actions"><button id="addRoundBtn2">Add round</button><button id="pairBtn2">Auto-pair selected round</button><button class="green" id="exportBtn2">Export workbook</button></div></div><div class="tabs" id="roundTabs2"></div><div id="matchesTable2"></div></div>
+  </section>
+  <section id="view-standings" class="hidden"><div class="panel"><div class="panelhead"><h2>Standings & game count</h2><span class="muted">Each present player needs 5 games. Later rounds can be played while an earlier round is still open.</span></div><div id="standingsTable"></div></div></section>
+  <section id="view-excel" class="hidden">
+    <div class="panel"><h2>Excel workbook</h2><p class="muted" id="excelHelp">Import your .xlsx workbook, record scores in this app, then export a new updated .xlsx workbook. The original file is not changed automatically.</p><div class="formrow"><button class="primary" id="importBtn2">Choose Excel file</button><button class="green" id="exportBtn3">Download updated workbook</button><input type="file" id="fileInput" accept=".xlsx,.xls" class="hidden"></div><p id="importResult" class="muted"></p><div class="rule">Expected sheets: Players, then Round 1, Round 2, and as many later rounds as you add. The app can also start with a built-in starter roster.</div></div>
+  </section>
+  <section id="view-settings" class="hidden">
+    <div class="panel"><h2>Competition rules</h2><p class="muted">Adjust table movement and scoring assumptions before using the tracker.</p>
+      <div class="rule">Scoring: win = 1 point, loss = 0 points, draw = 0.5 points each.</div>
+      <div class="rule">Winner stays at the same table.</div>
+      <div class="rule">Loser moves to the next higher table: 6 → 7 → 8 → 9 → 10. A loser at Table 10 moves to Table 6.</div>
+      <div class="rule">Pairings generated by this app avoid rematches where possible, but with an odd number of present players or absent players, a bye/absence policy may be needed.</div>
+      <label><input type="checkbox" id="wrapTop" checked> Table 10 loser moves to Table 6</label><br><br>
+      <button class="primary" id="saveSettings">Save rules</button><span id="settingsMsg" class="muted"></span>
+    </div>
+  </section>
+  <footer>Local-first tournament helper. Keep a backup of the Excel workbook after each round.</footer>
+</main>
+</div>
+<script src="xlsx.full.min.js"></script>
+<script>
+const initialPlayers = [
+{name:"Santosh Kumar",phone:"8686153557",age:39,event:"Chess Competition",payment:"Paid",fee:500,attendance:"Present",table:""},
+{name:"Hari Charan",phone:"9392411365",age:22,event:"Chess Competition / Championship",payment:"Paid",fee:500,attendance:"Present",table:""},
+{name:"Rahul Jakkula",phone:"8341517317",age:36,event:"Chess Competition",payment:"Paid",fee:500,attendance:"Present",table:""},
+{name:"Veer Vachan",phone:"9948352831",age:7,event:"Chess Competition",payment:"Paid",fee:500,attendance:"Present",table:10},
+{name:"Rishab",phone:"9131502728",age:30,event:"Chess Competition",payment:"Paid",fee:500,attendance:"Present",table:6},
+{name:"Vamshi Krishna",phone:"9492063258",age:26,event:"Chess Competition",payment:"Paid",fee:500,attendance:"Present",table:9},
+{name:"KUDUPUDI SAI VENKATA GANGI SETTI",phone:"6303268627",age:27,event:"Chess Competition",payment:"Paid",fee:500,attendance:"Present",table:""},
+{name:"Shravani",phone:"+917287850142",age:28,event:"Chess Competition",payment:"Paid",fee:500,attendance:"Present",table:7},
+{name:"Yeminedi Venkata Rama Krishna",phone:"7042218462",age:30,event:"Chess Championship",payment:"Paid",fee:500,attendance:"Present",table:""},
+{name:"Jaya Harish Pilladi",phone:"7986824118",age:27,event:"Chess Championship",payment:"Paid",fee:500,attendance:"Present",table:6},
+{name:"S. Manjunath (confirm if S. Manoj)",phone:"9959135094",age:17,event:"Chess Competition",payment:"Paid",fee:500,attendance:"Absent",table:""},
+{name:"Sonali Mohanty (Soham Mohanty)",phone:"997979979797",age:24,event:"Chess Championship",payment:"Paid",fee:500,attendance:"Present",table:""},
+{name:"Suhan Reddy Paidi",phone:"9502329479",age:28,event:"Chess Championship",payment:"Paid",fee:500,attendance:"Absent",table:""},
+{name:"Sriansh Sripada",phone:"9100945765",age:14,event:"Chess Championship",payment:"Paid",fee:500,attendance:"Present",table:10},
+{name:"Akula Adithya",phone:"7671952120",age:16,event:"Chess Championship",payment:"Paid",fee:500,attendance:"Present",table:""},
+{name:"Nomula Sai Teja",phone:"7981706855",age:17,event:"Chess Competition",payment:"Paid",fee:500,attendance:"Present",table:9},
+{name:"N. Manoj",phone:"7416915399",age:22,event:"Chess Championship",payment:"Paid",fee:500,attendance:"Present",table:8},
+{name:"Rohit Adla",phone:"8686345193",age:29,event:"Chess Championship",payment:"Paid",fee:500,attendance:"Present",table:""},
+{name:"Sri Harsha",phone:"+918897475745",age:28,event:"Chess Championship",payment:"Paid",fee:500,attendance:"Present",table:7}
+];
+initialPlayers.forEach(p=>{p.baseTable=p.table||"";});
+const initialRounds = {
+1:[{table:6,p1:"Veer Vachan",p2:"Sriansh Sripada",result:"P2"},{table:7,p1:"Vamshi Krishna",p2:"Nomula Sai Teja",result:"P1"},{table:8,p1:"N. Manoj",p2:"Hari Charan",result:"P2"},{table:9,p1:"Shravani",p2:"Sri Harsha",result:"P1"},{table:10,p1:"Rishab",p2:"Jaya Harish Pilladi",result:"P2"}],
+2:[{table:6,p1:"Sriansh Sripada",p2:"Rishab",result:"P1"},{table:7,p1:"Veer Vachan",p2:"Vamshi Krishna",result:"P2"},{table:8,p1:"Nomula Sai Teja",p2:"Hari Charan",result:"P2"},{table:9,p1:"Shravani",p2:"N. Manoj",result:"P1"},{table:10,p1:"Sri Harsha",p2:"Jaya Harish Pilladi",result:"P2"}],
+3:[{table:6,p1:"Sriansh Sripada",p2:"Sri Harsha",result:""},{table:7,p1:"Vamshi Krishna",p2:"Rishab",result:""},{table:8,p1:"Hari Charan",p2:"Veer Vachan",result:""},{table:9,p1:"Shravani",p2:"Nomula Sai Teja",result:""},{table:10,p1:"Jaya Harish Pilladi",p2:"N. Manoj",result:""}],
+4:[6,7,8,9,10].map(table=>({table,p1:"",p2:"",result:""})),5:[6,7,8,9,10].map(table=>({table,p1:"",p2:"",result:""}))
+};
+let players=structuredClone(initialPlayers), rounds=structuredClone(initialRounds), activeRound=1, workbookImported=false;
+let rules={wrapTop:true,bottomTo7:true};
+let serverMode=false, revision="", saveTimer=null, applyingRemote=false, saving=false, saveQueued=false, pendingSave=false, hostNotice="", editGeneration=0;
+const $=id=>document.getElementById(id);
+function esc(s){return String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
+function findPlayer(name){return players.find(p=>p.name===name)}
+function stats(name){
+ let games=0,wins=0,draws=0,losses=0,points=0,opponents=[];
+ for(const r of roundList()) for(const m of rounds[r]||[]){
+  if(!m.result||m.result==="Not played"||!m.p1||!m.p2)continue;
+  const is1=m.p1===name,is2=m.p2===name;if(!is1&&!is2)continue;
+  games++;opponents.push(is1?m.p2:m.p1);
+  if(m.result==="Draw"){draws++;points+=.5}
+  else {const winner=m.result==="P1"?m.p1:m.p2;if(winner===name){wins++;points++}else losses++}
+ }
+ return {games,wins,draws,losses,points,remaining:Math.max(0,GAMES_EACH-games),opponents};
+}
+function allStats(){return players.map(p=>({...p,...stats(p.name)})).sort((a,b)=>b.points-a.points||b.wins-a.wins||a.name.localeCompare(b.name))}
+function currentWinner(m){return m.result==="P1"?m.p1:m.result==="P2"?m.p2:m.result==="Draw"?"Draw":""}
+function playerPoints(m,which){if(m.result==="Draw")return .5;if(m.result==="P1")return which===1?1:0;if(m.result==="P2")return which===2?1:0;return ""}
+const TABLES=[6,7,8,9,10];
+const GAMES_EACH=5;
+function blankRound(){return TABLES.map(table=>({table,p1:"",p2:"",result:""}))}
+function orderRound(list){return (list||[]).slice().sort((a,b)=>Number(a.table)-Number(b.table))}
+function roundList(){return Object.keys(rounds).map(Number).filter(n=>n>0).sort((a,b)=>a-b)}
+function gamesBefore(name,round){
+ let games=0;
+ if(!name)return 0;
+ for(const r of roundList()){
+  if(r>=round)break;
+  for(const m of rounds[r]||[]){
+   if(m.p1&&m.p2&&m.result&&m.result!=="Not played"&&(m.p1===name||m.p2===name))games++;
+  }
+ }
+ return games;
+}
+function canSit(name,round){return !!name&&gamesBefore(name,round)<GAMES_EACH}
+function movementSeats(prevRound){
+ const target=prevRound+1;
+ const stayer={},arrival={};
+ for(const m of orderRound(rounds[prevRound]||[])){
+  if(!m.p1||!m.p2||!m.result||m.result==="Not played")continue;
+  const table=Number(m.table);
+  if(m.result==="Draw"){
+   const staying=[m.p1,m.p2].filter(n=>canSit(n,target));
+   if(staying[0])stayer[table]=staying[0];
+   if(staying[1])arrival[table]=staying[1];
+   continue;
+  }
+  const winner=m.result==="P1"?m.p1:m.p2, loser=m.result==="P1"?m.p2:m.p1;
+  if(canSit(winner,target))stayer[table]=winner;
+  if(canSit(loser,target))arrival[nextTable(table,false)]=loser;
+ }
+ const used=new Set();
+ const seats={};
+ TABLES.forEach(table=>{
+  let p1=stayer[table]||"", p2=arrival[table]||"";
+  if(p1&&used.has(p1))p1="";
+  if(p2&&(used.has(p2)||p2===p1))p2="";
+  if(p1)used.add(p1);
+  if(p2)used.add(p2);
+  seats[table]={p1,p2};
+ });
+ return seats;
+}
+function applyMovement(toRound,prevRound){
+ const seats=movementSeats(prevRound);
+ const existing=orderRound(rounds[toRound]||blankRound());
+ rounds[toRound]=TABLES.map(table=>{
+  const want=seats[table];
+  const cur=existing.find(m=>Number(m.table)===table)||{table,p1:"",p2:"",result:""};
+  const same=cur.p1===want.p1&&cur.p2===want.p2;
+  return {table,p1:want.p1,p2:want.p2,result:same?(cur.result||""):""};
+ });
+}
+function enforcePlacements(){
+ let lastComplete=0;
+ for(const r of roundList()){
+  const rows=rounds[r]||[];
+  const done=TABLES.every(t=>rows.some(m=>Number(m.table)===t&&m.p1&&m.p2&&m.result&&m.result!=="Not played"));
+  if(!done)break;
+  lastComplete=r;
+ }
+ if(lastComplete&&rounds[lastComplete+1]){
+  const next=rounds[lastComplete+1];
+  if(next.some(m=>m.result&&m.result!=="Not played"))return;
+  applyMovement(lastComplete+1,lastComplete);
+ }
+}
+function placeNextRound(prevRound){
+ const seats=movementSeats(prevRound);
+ const used=new Set();
+ const slots=TABLES.map(table=>{
+  const seat=seats[table]||{p1:"",p2:""};
+  if(seat.p1)used.add(seat.p1);
+  if(seat.p2)used.add(seat.p2);
+  return {table,p1:seat.p1,p2:seat.p2,result:""};
+ });
+ const target=prevRound+1;
+ const waiting=players.filter(p=>p.attendance!=="Absent"&&canSit(p.name,target)&&!used.has(p.name));
+ waiting.sort((a,b)=>gamesBefore(a.name,target)-gamesBefore(b.name,target)||a.name.localeCompare(b.name));
+ for(const slot of slots){
+  for(const key of ["p1","p2"]){
+   if(slot[key])continue;
+   const pick=waiting.find(p=>!used.has(p.name));
+   if(!pick)break;
+   slot[key]=pick.name;
+   used.add(pick.name);
+  }
+ }
+ return slots;
+}
+function addRound(){
+ const list=roundList();
+ const prev=list.length?list[list.length-1]:0;
+ const n=prev+1;
+ rounds[n]=prev?placeNextRound(prev):blankRound();
+ activeRound=n;
+ renderAll();
+ scheduleSave();
+}
+function nextTable(table,won){
+ table=Number(table);
+ if(won)return table;
+ const at=TABLES.indexOf(table);
+ if(at<0)return table;
+ if(at===TABLES.length-1)return rules.wrapTop?TABLES[0]:table;
+ return TABLES[at+1];
+}
+function tablesAfterRound(upto){
+ const current={};
+ for(const p of players) current[p.name]=(p.baseTable===""||p.baseTable==null)?"":Number(p.baseTable);
+ for(const r of roundList()){ if(r>upto) break;
+  for(const m of rounds[r]){
+   if(m.p1&&(current[m.p1]===""||current[m.p1]==null)&&m.table)current[m.p1]=Number(m.table);
+   if(m.p2&&(current[m.p2]===""||current[m.p2]==null)&&m.table)current[m.p2]=Number(m.table);
+   if(!m.p1||!m.p2||!m.result||m.result==="Not played")continue;
+   if(m.result==="Draw"){current[m.p1]=Number(m.table);current[m.p2]=Number(m.table);continue}
+   const winner=m.result==="P1"?m.p1:m.p2, loser=m.result==="P1"?m.p2:m.p1;
+   current[winner]=Number(m.table);
+   current[loser]=nextTable(m.table,false);
+  }
+ }
+ return current;
+}
+function semiFinalists(){return allStats().filter(p=>p.games>=GAMES_EACH)}
+function reseatFollowingRound(fromRound){
+ if(!rounds[fromRound+1])return;
+ applyMovement(fromRound+1,fromRound);
+}
+function movementText(m){
+ if(!m.result||m.result==="Not played")return "Enter result to calculate movement";
+ if(m.result==="Draw")return "Draw — both players stay at this table";
+ const winner=m.result==="P1"?m.p1:m.p2, loser=m.result==="P1"?m.p2:m.p1;
+ return `${winner} stays at Table ${Number(m.table)} · ${loser} moves to Table ${nextTable(m.table,false)}`;
+}
+function recomputeTables(){
+ const current={};
+ for(const p of players){
+  const hasResult=roundList().some(r=>(rounds[r]||[]).some(m=>(m.p1===p.name||m.p2===p.name)&&m.result&&m.result!=="Not played"));
+  let base=p.baseTable;
+  if((base===""||base==null)&&!hasResult&&p.table){base=p.table;p.baseTable=p.table}
+  current[p.name]=(base===""||base==null)?"":Number(base);
+ }
+ for(const r of roundList()){
+  for(const m of rounds[r]||[]){
+   if(m.p1&&(current[m.p1]===""||current[m.p1]==null)&&m.table)current[m.p1]=Number(m.table);
+   if(m.p2&&(current[m.p2]===""||current[m.p2]==null)&&m.table)current[m.p2]=Number(m.table);
+   if(!m.p1||!m.p2||!m.result||m.result==="Not played")continue;
+   if(m.result==="Draw"){current[m.p1]=Number(m.table);current[m.p2]=Number(m.table);continue}
+   const winner=m.result==="P1"?m.p1:m.p2, loser=m.result==="P1"?m.p2:m.p1;
+   current[winner]=Number(m.table);
+   current[loser]=nextTable(m.table,false);
+  }
+ }
+ for(const p of players)p.table=current[p.name]||"";
+}
+function renderRoundTabs(target){
+ $(target).innerHTML=roundList().map(r=>`<button data-round="${r}" class="${r===activeRound?'active':''}">Round ${r}</button>`).join("");
+ $(target).querySelectorAll("[data-round]").forEach(b=>b.onclick=()=>{activeRound=+b.dataset.round;renderAll()});
+}
+function playerPicker(selected,i,key){
+ return `<div class="picker" data-i="${i}" data-k="${key}"><input class="picker-input" placeholder="Search player" value="${esc(selected||"")}" autocomplete="off"><div class="picker-list hidden"></div></div>`;
+}
+function bindPlayerPickers(root){
+ root.querySelectorAll(".picker").forEach(box=>{
+  const input=box.querySelector(".picker-input");
+  const list=box.querySelector(".picker-list");
+  const show=query=>{
+   const q=String(query||"").trim().toLowerCase();
+   const matches=players.filter(p=>!q||(p.name+" "+p.phone).toLowerCase().includes(q)).slice(0,15);
+   const rect=input.getBoundingClientRect();
+   list.style.left=rect.left+"px";
+   list.style.top=(rect.bottom+4)+"px";
+   list.style.width=Math.max(rect.width,220)+"px";
+   list.innerHTML=matches.length?matches.map(p=>`<button type="button" data-name="${esc(p.name)}">${esc(p.name)}</button>`).join(""):`<div class="empty">No matching player</div>`;
+   list.classList.remove("hidden");
+   list.querySelectorAll("button").forEach(btn=>btn.onmousedown=e=>{
+    e.preventDefault();
+    choosePlayer(box,btn.dataset.name);
+   });
+  };
+  input.onfocus=()=>{input.select();show("")};
+  input.oninput=()=>show(input.value);
+  input.onkeydown=e=>{
+   const buttons=[...list.querySelectorAll("button")];
+   const active=list.querySelector("button.active");
+   let idx=buttons.indexOf(active);
+   if(e.key==="ArrowDown"||e.key==="ArrowUp"){
+    e.preventDefault();
+    if(!buttons.length)return;
+    idx=e.key==="ArrowDown"?(idx+1)%buttons.length: (idx<=0?buttons.length-1:idx-1);
+    buttons.forEach(b=>b.classList.remove("active"));
+    buttons[idx].classList.add("active");
+    buttons[idx].scrollIntoView({block:"nearest"});
+   }
+   if(e.key==="Enter"){
+    e.preventDefault();
+    const pick=active||buttons[0];
+    if(pick)choosePlayer(box,pick.dataset.name);
+   }
+   if(e.key==="Escape")list.classList.add("hidden");
+  };
+  input.onblur=()=>setTimeout(()=>{
+   list.classList.add("hidden");
+   const m=rounds[activeRound][+box.dataset.i];
+   if(!m)return;
+   const typed=input.value.trim();
+   const exact=players.find(p=>p.name.toLowerCase()===typed.toLowerCase());
+   if(exact){if(m[box.dataset.k]!==exact.name)choosePlayer(box,exact.name)}
+   else input.value=m[box.dataset.k]||"";
+  },160);
+ });
+}
+function choosePlayer(box,name){
+ const m=rounds[activeRound][+box.dataset.i];
+ if(!m)return;
+ m[box.dataset.k]=name;
+ if(m.result&&m.result!=="Not played")reseatFollowingRound(activeRound);
+ renderAll(false);scheduleSave();
+}
+function renderMatches(target){
+ const ms=rounds[activeRound];
+ $(target).innerHTML=`<div class="tablewrap"><table><thead><tr><th>Table</th><th>Player 1</th><th>Player 2</th><th>Result</th><th>Points</th><th>Movement</th></tr></thead><tbody>${ms.map((m,i)=>`<tr>
+ <td><select class="short" data-i="${i}" data-k="table">${TABLES.map(t=>`<option ${t===+m.table?'selected':''}>${t}</option>`).join("")}</select></td>
+ <td>${playerPicker(m.p1,i,"p1")}</td>
+ <td>${playerPicker(m.p2,i,"p2")}</td>
+ <td><select data-i="${i}" data-k="result"><option value="" ${!m.result?'selected':''}>Not entered</option><option value="P1" ${m.result==="P1"?'selected':''}>Player 1 wins</option><option value="P2" ${m.result==="P2"?'selected':''}>Player 2 wins</option><option value="Draw" ${m.result==="Draw"?'selected':''}>Draw</option><option value="Not played" ${m.result==="Not played"?'selected':''}>Not played</option></select></td>
+ <td><b>${m.result&&m.result!=="Not played"?playerPoints(m,1)+" – "+playerPoints(m,2):"—"}</b></td> <td class="muted">${esc(movementText(m))}</td>
+ </tr>`).join("")}</tbody></table></div><p class="muted">Win at a table and you stay there. Lose at Table 6 and you move to Table 7, then 8, then 9, then 10, and from 10 back to 6. Tables are always listed 6, 7, 8, 9, 10. ${serverMode?"This is saved on this PC and on the phone.":"Export the workbook to keep an Excel copy."}</p>`;
+ $(target).querySelectorAll("select").forEach(sel=>sel.onchange=()=>{const m=rounds[activeRound][+sel.dataset.i];let value=sel.value;if(sel.dataset.k==="table")value=+value;m[sel.dataset.k]=value;if(sel.dataset.k==="result"||(m.result&&m.result!=="Not played"))reseatFollowingRound(activeRound);renderAll(false);scheduleSave()});
+ bindPlayerPickers($(target));
+}
+function renderSemis(){
+ const arr=semiFinalists();
+ $("semiList").innerHTML=arr.length?arr.map((p,i)=>`<div style="padding:8px 0;border-bottom:1px solid var(--line)"><b>${i+1}. ${esc(p.name)}</b><br><span class="pill present">Semi-finals</span> ${p.points} pts · ${p.wins} wins</div>`).join(""):'<div class="muted">A player moves here after 5 games. They are no longer placed on tables 6–10.</div>';
+}
+function renderTopStandings(){
+ const arr=allStats().slice(0,10);
+ $("topStandings").innerHTML=`<div class="tablewrap"><table class="smalltable"><thead><tr><th>#</th><th>Player</th><th>Games</th><th>Wins</th><th>Pts</th></tr></thead><tbody>${arr.map((p,i)=>`<tr><td>${i+1}</td><td>${esc(p.name)}</td><td>${p.games}</td><td>${p.wins}</td><td><b>${p.points}</b></td></tr>`).join("")}</tbody></table></div>`;
+}
+function renderStandings(){
+ const arr=allStats();
+ $("standingsTable").innerHTML=`<div class="tablewrap"><table><thead><tr><th>#</th><th>Player</th><th>Current Table</th><th>Games</th><th>Wins</th><th>Draws</th><th>Losses</th><th>Points</th><th>Remaining</th><th>Status</th></tr></thead><tbody>${arr.map((p,i)=>`<tr><td>${i+1}</td><td>${esc(p.name)}</td><td>${p.table||"—"}</td><td>${p.games}</td><td>${p.wins}</td><td>${p.draws}</td><td>${p.losses}</td><td><b>${p.points}</b></td><td>${p.remaining}</td><td>${p.attendance==="Absent"&&p.games<GAMES_EACH?'<span class="pill absent">Absent</span>':p.games>=GAMES_EACH?'<span class="pill present">Semi-finals</span>':'<span class="pill">Needs '+(GAMES_EACH-p.games)+'</span>'}</td></tr>`).join("")}</tbody></table></div>`;
+}
+function renderPlayers(){
+ const q=($("playerSearch")?.value||"").toLowerCase();
+ const arr=players.filter(p=>(p.name+" "+p.phone).toLowerCase().includes(q));
+ $("playersTable").innerHTML=`<div class="tablewrap"><table><thead><tr><th>Name</th><th>Phone</th><th>Age</th><th>Payment</th><th>Attendance</th><th>Current Table</th><th>Games</th><th>Points</th><th>Action</th></tr></thead><tbody>${arr.map(p=>{let s=stats(p.name);return `<tr><td>${esc(p.name)}</td><td>${esc(p.phone)}</td><td>${esc(p.age)}</td><td>${esc(p.payment)}</td><td><select data-att="${esc(p.name)}"><option ${p.attendance==="Present"?"selected":""}>Present</option><option ${p.attendance==="Absent"?"selected":""}>Absent</option></select></td><td><select data-table="${esc(p.name)}"><option value="">—</option>${[6,7,8,9,10].map(t=>`<option ${+p.table===t?'selected':''}>${t}</option>`).join("")}</select></td><td>${s.games}</td><td>${s.points}</td><td><button class="danger" data-remove="${esc(p.name)}">Remove</button></td></tr>`}).join("")}</tbody></table></div>`;
+ $("playersTable").querySelectorAll("[data-att]").forEach(e=>e.onchange=()=>{findPlayer(e.dataset.att).attendance=e.value;renderAll(false);scheduleSave()});
+ $("playersTable").querySelectorAll("[data-table]").forEach(e=>e.onchange=()=>{const p=findPlayer(e.dataset.table);p.baseTable=e.value?+e.value:"";p.table=p.baseTable;renderAll(false);scheduleSave()});
+ $("playersTable").querySelectorAll("[data-remove]").forEach(e=>e.onclick=()=>{if(confirm("Remove "+e.dataset.remove+" from the roster and clear their pairings?")){let n=e.dataset.remove;players=players.filter(p=>p.name!==n);for(const r of roundList())(rounds[r]||[]).forEach(m=>{if(m.p1===n)m.p1="";if(m.p2===n)m.p2=""});renderAll();scheduleSave()}});
+}
+function renderAbsent(){
+ const arr=players.filter(p=>p.attendance==="Absent");
+ $("absentList").innerHTML=arr.length?arr.map(p=>`<div style="padding:8px 0;border-bottom:1px solid var(--line)"><b>${esc(p.name)}</b><br><span class="pill absent">Absent</span></div>`).join(""):'<div class="muted">No absent players marked.</div>';
+}
+function renderMovement(){
+ $("movementSummary").innerHTML=`<div class="rule"><b>Winner:</b> stays at the same table. A win at Table 6 means the next game is also at Table 6.</div><div class="rule"><b>Loser:</b> moves to the next table: 6 → 7, 7 → 8, 8 → 9, 9 → 10${rules.wrapTop?", and 10 → 6":""}.</div><div class="rule">A typed name that breaks the rule is put back. The winner stays, the loser moves up, and a player with 5 games goes to the semi-finals instead of the next table.</div>`;
+}
+function renderAll(refreshTabs=true){
+ for(const r of roundList()) rounds[r]=orderRound(rounds[r]);
+ recomputeTables();
+ const short=players.filter(p=>p.attendance!=="Absent"&&stats(p.name).games<GAMES_EACH);
+ $("mPlayers").textContent=players.length;$("mPresent").textContent=players.filter(p=>p.attendance==="Present").length;$("mAbsent").textContent=players.filter(p=>p.attendance==="Absent").length;
+ if($("mRounds"))$("mRounds").textContent=roundList().length;
+ $("roundHeading").textContent=`Round ${activeRound} Matches`;
+ const last=roundList();
+ const nextRound=(last.length?last[last.length-1]:0)+1;
+ if($("gamesNeed"))$("gamesNeed").textContent=short.length?`${short.length} players still need games to reach 5. Add round places the next tables from the last results: winners stay, losers move up, and anyone with 5 games goes to the semi-finals.`:`Everyone still in the tables has 5 games. They are in the semi-finals.`;
+ if(refreshTabs){renderRoundTabs("roundTabs");renderRoundTabs("roundTabs2")}
+ renderMatches("matchesTable");renderMatches("matchesTable2");renderSemis();renderTopStandings();renderStandings();renderPlayers();renderAbsent();renderMovement();
+}
+function switchView(v){
+ document.querySelectorAll("[id^=view-]").forEach(el=>el.classList.add("hidden"));
+ $("view-"+v).classList.remove("hidden");
+ document.querySelectorAll("#nav button").forEach(b=>b.classList.toggle("active",b.dataset.view===v));
+ $("pageTitle").textContent=({dashboard:"Chess Competition",players:"Players",matches:"Round Pairings & Score Entry",standings:"Tournament Standings",excel:"Excel Data",settings:"Rules & Settings"})[v]||"Chess Competition";
+}
+document.querySelectorAll("#nav button").forEach(b=>b.onclick=()=>switchView(b.dataset.view));
+document.querySelectorAll("[data-goto]").forEach(b=>b.onclick=()=>switchView(b.dataset.goto));
+$("playerSearch").oninput=renderPlayers;
+function autoPair(){
+ recomputeTables();
+ const already=new Set();
+ for(const r of roundList()) if(r!==activeRound) for(const m of rounds[r]||[]) if(m.p1&&m.p2) already.add([m.p1,m.p2].sort().join("|"));
+ const existing=rounds[activeRound]||blankRound();
+ const locked=existing.filter(m=>m.p1&&m.p2&&m.result&&m.result!=="Not played");
+ const used=new Set();
+ locked.forEach(m=>{used.add(m.p1);used.add(m.p2)});
+ const need=players.filter(p=>p.attendance==="Present"&&!used.has(p.name)&&stats(p.name).games<GAMES_EACH);
+ need.sort((a,b)=>stats(b.name).remaining-stats(a.name).remaining||(Number(a.table)||6)-(Number(b.table)||6)||stats(b.name).points-stats(a.name).points);
+ const eligible=need;
+ const slots=TABLES.map(table=>{
+  const kept=locked.find(m=>Number(m.table)===table);
+  return kept?{...kept}:{table,p1:"",p2:"",result:""};
+ });
+ for(const slot of slots){
+  if(slot.p1&&slot.p2) continue;
+  let pool=eligible.filter(p=>!used.has(p.name)&&stats(p.name).games<GAMES_EACH);
+  if(pool.length<2) pool=eligible.filter(p=>!used.has(p.name));
+  let at=pool.filter(p=>Number(p.table)===slot.table);
+  if(at.length<2) at=pool;
+  if(at.length<2) break;
+  const a=at[0];
+  const b=at.find(x=>x.name!==a.name&&!already.has([a.name,x.name].sort().join("|")))||at.find(x=>x.name!==a.name);
+  if(!b) break;
+  slot.p1=a.name;slot.p2=b.name;slot.result="";used.add(a.name);used.add(b.name);
+ }
+ rounds[activeRound]=slots;renderAll();scheduleSave();
+}
+$("autoPairBtn").onclick=autoPair;$("pairBtn2").onclick=autoPair;$("addRoundBtn").onclick=addRound;$("addRoundBtn2").onclick=addRound;
+function addPlayer(){
+ const name=prompt("Player's full name:");if(!name||!name.trim())return;
+ if(findPlayer(name.trim())){alert("That player is already in the roster.");return}
+ const phone=prompt("Phone number (optional):")||"";
+ players.push({name:name.trim(),phone,age:"",event:"Chess Competition",payment:"Pending",fee:500,attendance:"Present",table:""});
+ renderAll();scheduleSave();
+}
+$("addPlayerBtn").onclick=addPlayer;
+$("wrapTop").onchange=()=>rules.wrapTop=$("wrapTop").checked;
+$("saveSettings").onclick=()=>{rules.wrapTop=$("wrapTop").checked;$("settingsMsg").textContent=" Rules saved.";renderAll(false);scheduleSave()};
+function resultCode(raw){
+ raw=String(raw||"").trim();
+ if(/player 1 wins/i.test(raw))return "P1";
+ if(/player 2 wins/i.test(raw))return "P2";
+ if(/^draw$/i.test(raw))return "Draw";
+ if(/^not played$/i.test(raw))return "Not played";
+ if(raw==="P1"||raw==="P2"||raw==="Draw"||raw==="Not played")return raw;
+ return "";
+}
+function sheetObjects(sh){
+ const preview=XLSX.utils.sheet_to_json(sh,{header:1,defval:""});
+ let headerRow=0;
+ for(let i=0;i<Math.min(preview.length,8);i++){
+  const cells=preview[i].map(c=>String(c).trim().toLowerCase());
+  if(cells.includes("table")&&cells.some(c=>c.includes("player 1"))){headerRow=i;break}
+  if(cells.some(c=>c==="player name"||c==="name")){headerRow=i;break}
+  if(cells.some(c=>c.includes("wrap top loser"))){headerRow=i;break}
+ }
+ return XLSX.utils.sheet_to_json(sh,{range:headerRow,defval:""});
+}
+function readRoundSheet(wb,r){
+ const sh=wb.Sheets["Round "+r];
+ if(!sh) return blankRound();
+ const ms=[];
+ for(const row of sheetObjects(sh)){
+  const table=Number(row.Table);
+  if(!TABLES.includes(table)) continue;
+  ms.push({table,p1:row["Player 1"]||"",p2:row["Player 2"]||"",result:resultCode(row["Result (Winner / Draw)"]||row["Result"]||"")});
+ }
+ if(!ms.length) return blankRound();
+ const used=new Set(ms.map(m=>Number(m.table)));
+ for(const t of TABLES) if(!used.has(t)&&ms.length<TABLES.length) ms.push({table:t,p1:"",p2:"",result:""});
+ ms.sort((a,b)=>a.table-b.table);
+ return ms.slice(0,TABLES.length);
+}
+function applyWorkbook(wb,fileName){
+ const ps=wb.Sheets["Players"];
+ if(ps){
+  const converted=sheetObjects(ps).map(r=>({
+   name:r["Player Name"]||r["Name"]||r["name"]||"",phone:String(r["Phone"]||r["phone"]||""),age:r["Age"]||r["age"]||"",event:r["Event"]||"",payment:r["Payment Status"]||"Paid",fee:r["Entry Fee (INR)"]||500,upi:r["UPI UTR / Reference"]||"",submitted:r["Submitted Date"]||"",attendance:r["Attendance"]||r["Round 1 Attendance"]||"Present",table:r["Current Table"]||"",baseTable:r["Starting Table"]||"",notes:r["Notes"]||""
+  })).filter(p=>p.name);
+  if(converted.length)players=converted;
+ }
+ const found=wb.SheetNames.map(n=>/^Round (\d+)$/.exec(n)).filter(Boolean).map(m=>Number(m[1]));
+ const highest=Math.max(5,...found,0);
+ const nextRounds={};
+ for(let r=1;r<=highest;r++) nextRounds[r]=readRoundSheet(wb,r);
+ rounds=nextRounds;
+ if(!rounds[activeRound]) activeRound=1;
+ enforcePlacements();
+ const settingsSheet=wb.Sheets["Settings"];
+ if(settingsSheet){
+  const row=sheetObjects(settingsSheet)[0]||{};
+  if(String(row["Wrap top loser to table 6"]||"")!=="") rules.wrapTop=/^(yes|true|1)$/i.test(String(row["Wrap top loser to table 6"]));
+  $("wrapTop").checked=rules.wrapTop;
+ }
+ workbookImported=true;
+ $("importResult").textContent=`Loaded ${players.length} players from ${fileName}.`;
+ if(!serverMode){
+  $("fileStatus").textContent="Workbook loaded";
+  $("fileInfo").textContent=fileName;
+  $("notice").className="notice good";
+  $("notice").innerHTML="Workbook loaded. Record match results and click <b>Export Updated Excel</b> to download your updated copy.";
+ }
+ renderAll();
+}
+function matchRecord(m,round){
+ const winner=m.result==="P1"?m.p1:m.result==="P2"?m.p2:m.result==="Draw"?"Draw":"";
+ const loser=m.result==="P1"?m.p2:m.result==="P2"?m.p1:"";
+ const played=m.result&&m.result!=="Not played";
+ return {"Round":round,"Table":m.table,"Player 1":m.p1,"Player 2":m.p2,"Result (Winner / Draw)":m.result==="P1"?"Player 1 wins":m.result==="P2"?"Player 2 wins":m.result||"","Winner":winner,"Loser":loser,"Player 1 Points":playerPoints(m,1),"Player 2 Points":playerPoints(m,2),"Next Table — Player 1":!played?"":m.result==="P2"?nextTable(m.table,false):Number(m.table),"Next Table — Player 2":!played?"":m.result==="P1"?nextTable(m.table,false):Number(m.table)};
+}
+function buildWorkbook(){
+ for(const r of roundList()) rounds[r]=orderRound(rounds[r]);
+ recomputeTables();
+ const wb=XLSX.utils.book_new();
+ const playerRows=players.map((p,i)=>{const s=stats(p.name);return {"Player ID":i+1,"Player Name":p.name,"Phone":p.phone,"Age":p.age,"Event":p.event,"Payment Status":p.payment,"Entry Fee (INR)":p.fee,"UPI UTR / Reference":p.upi||"","Submitted Date":p.submitted||"","Attendance":p.attendance,"Notes":p.notes||"","Starting Table":p.baseTable||"","Current Table":p.table,"Wins":s.wins,"Losses":s.losses,"Draws":s.draws,"Total Points":s.points,"Games Played":s.games}});
+ XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(playerRows),"Players");
+ const all=[];
+ for(const r of roundList()){
+  const rows=(rounds[r]||blankRound()).map(m=>matchRecord(m,r));
+  all.push(...rows.filter(row=>row["Player 1"]||row["Player 2"]));
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(rows),"Round "+r);
+ }
+ XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(all),"All Matches");
+ const standings=allStats().map((p,i)=>({"Rank":i+1,"Player Name":p.name,"Current Table":p.table,"Games Played":p.games,"Wins":p.wins,"Draws":p.draws,"Losses":p.losses,"Total Points":p.points,"Games Remaining":p.remaining,"Status":p.attendance==="Absent"&&p.games<GAMES_EACH?"Absent":p.games>=GAMES_EACH?"Semi-finals":"Needs "+p.remaining}));
+ XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(standings),"Standings");
+ XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet([{"Wrap top loser to table 6":rules.wrapTop?"Yes":"No","Loser movement":"Winner stays. Loser moves to the next higher table. Table 10 loser goes to Table 6."}]),"Settings");
+ return wb;
+}
+function exportFile(){
+ if(!window.XLSX){alert("Excel library could not load. Reopen this page from the host address.");return}
+ XLSX.writeFile(buildWorkbook(),"Chess_Tournament_Updated.xlsx");
+}
+function showHost(info){
+ const others=(info.urls||[]).filter(u=>!/localhost|127\.0\.0\.1/.test(u));
+ $("fileStatus").textContent="Hosted on this PC";
+ $("fileInfo").textContent=others.length?("Other devices on this Wi-Fi open "+others.join("   ")):("Connect this PC to Wi-Fi, then restart the host, to get an address for other devices.");
+ const links=others.map(u=>`<a href="${esc(u)}">${esc(u)}</a>`).join("<br>");
+ $("notice").className="notice good";
+ $("notice").innerHTML=others.length
+  ?`Phones and laptops on the same Wi-Fi open:<br><b>${links}</b><br>A change on this PC shows on the phone, and a change on the phone shows on this PC. Both write into <b>Chess_Tournament_Live.xlsx</b>.`
+  :`Scores are saved on this PC in <b>Chess_Tournament_Live.xlsx</b>. Connect this PC to Wi-Fi and restart the host to get an address other devices can open.`;
+ hostNotice=$("notice").innerHTML;
+ if($("excelHelp")) $("excelHelp").innerHTML="This page is hosted on this PC. Every score is written into <b>Chess_Tournament_Live.xlsx</b> in this folder. The original Chess_Tournament_Tracker.xlsx stays unchanged. Download Excel copy saves an extra file on the device you are using.";
+ ["exportBtn","exportBtn2","exportBtn3"].forEach(id=>{if($(id))$(id).textContent="Download Excel copy"});
+}
+function scheduleSave(){
+ if(!serverMode||applyingRemote)return;
+ pendingSave=true;
+ editGeneration++;
+ $("fileStatus").textContent="Saving to Excel…";
+ clearTimeout(saveTimer);
+ saveTimer=setTimeout(saveToServer,300);
+}
+async function saveToServer(){
+ if(!serverMode||applyingRemote)return;
+ if(saving){saveQueued=true;return}
+ saving=true;
+ clearTimeout(saveTimer);
+ saveTimer=null;
+ const generationAtSend=editGeneration;
+ try{
+  if(!window.XLSX)throw new Error("Excel library failed to load.");
+  const bytes=XLSX.write(buildWorkbook(),{bookType:"xlsx",type:"array"});
+  const res=await fetch("/api/workbook",{method:"PUT",headers:{"Content-Type":"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet","X-Workbook-Revision":revision},body:bytes});
+  if(res.status===409){
+   pendingSave=false;
+   $("fileStatus").textContent="Updated from the other device";
+   await loadFromServer();
+   return;
+  }
+  if(res.status===423){
+   pendingSave=true;
+   $("fileStatus").textContent="Close the Excel file to save";
+   $("notice").className="notice";
+   $("notice").innerHTML="Excel has <b>Chess_Tournament_Live.xlsx</b> open, so this PC cannot update it. Close that file in Excel. The scores stay on this page and will save once the file is closed.";
+   return;
+  }
+  if(!res.ok)throw new Error("Save failed");
+  const data=await res.json();
+  if(editGeneration!==generationAtSend){
+   saveQueued=true;
+   return;
+  }
+  pendingSave=false;
+  await loadFromServer();
+  $("fileStatus").textContent=data.merged?"Saved and combined with the other device":"Saved. The phone and this PC stay in sync.";
+  if(hostNotice){$("notice").className="notice good";$("notice").innerHTML=hostNotice}
+ }catch(err){
+  pendingSave=true;
+  $("fileStatus").textContent="Could not save to Excel";
+ }finally{
+  saving=false;
+  if(saveQueued){saveQueued=false;scheduleSave()}
+ }
+}
+function canon(s){return String(s||"").toLowerCase().replace(/[^a-z0-9]/g,"")}
+function cleanName(name){
+ const trimmed=String(name||"").replace(/\s+/g," ").trim();
+ const aliases={veervachan:"Veer Vachan",nmanoj:"N. Manoj",shravani:"Shravani",yeminedivenkataramakrishna:"Yeminedi Venkata Rama Krishna",smanjunath:"S. Manjunath",sonalimohantysohammohanty:"Sonali Mohanty (Soham Mohanty)",suhanreddypaidi:"Suhan Reddy Paidi",rahuljakkula:"Rahul Jakkula"};
+ return aliases[canon(trimmed)]||trimmed;
+}
+function mergeRegistrations(rows){
+ if(!Array.isArray(rows)||!rows.length)return;
+ const prev=new Map(players.map(p=>[canon(p.name),p]));
+ const next=[]; const seen=new Set();
+ for(const r of rows){
+  const phone=String(r.Phone||r.phone||"").replace(/\s/g,"");
+  const name=cleanName(r.Name||r.name||"");
+  if(!name)continue;
+  if(phone&&seen.has(phone)){
+   const existing=next.find(p=>String(p.phone||"").replace(/\s/g,"")===phone);
+   if(existing&&canon(existing.name)!==canon(name))existing.notes=[existing.notes,"Also registered as "+name].filter(Boolean).join("; ");
+   continue;
+  }
+  if(phone)seen.add(phone);
+  const old=prev.get(canon(name));
+  const absent=canon(name)==="smanjunath"||canon(name)==="suhanreddypaidi";
+  next.push({name,phone:r.Phone||r.phone||"",age:r.Age??r.age??"",event:r.Event||r.event||"",payment:r["Payment Status"]||r.payment||"Pending",fee:r["Entry Fee (INR)"]||r.fee||500,upi:r["UPI UTR / Reference"]||"",submitted:r["Submitted Date"]||"",attendance:old?.attendance||(absent?"Absent":"Present"),table:old?.table||"",baseTable:old?.baseTable||"",notes:old?.notes||""});
+ }
+ for(const p of players){
+  if(!next.some(n=>canon(n.name)===canon(p.name))&&roundList().some(rn=>(rounds[rn]||[]).some(m=>canon(m.p1)===canon(p.name)||canon(m.p2)===canon(p.name))))next.push(p);
+ }
+ players=next;
+}
+async function loadRegistrations(){
+ try{
+  const res=await fetch("/api/registrations",{cache:"no-store"});
+  if(!res.ok)return;
+  mergeRegistrations(await res.json());
+  renderAll(false);
+ }catch(err){}
+}
+async function loadFromServer(){
+ const res=await fetch("/api/workbook",{cache:"no-store"});
+ if(!res.ok)throw new Error("Could not read the Excel file on this PC.");
+ const rev=res.headers.get("X-Workbook-Revision")||"";
+ const name=res.headers.get("X-Workbook-Name")||"workbook.xlsx";
+ const buf=await res.arrayBuffer();
+ applyingRemote=true;
+ try{
+  applyWorkbook(XLSX.read(buf,{type:"array"}),name);
+  revision=rev;
+ }finally{applyingRemote=false}
+}
+async function watchWorkbook(){
+ if(!serverMode||saving||applyingRemote)return;
+ try{
+  const res=await fetch("/api/revision",{cache:"no-store"});
+  if(!res.ok)return;
+  const data=await res.json();
+  const rev=data.revision||"";
+  if(rev&&rev!==revision){
+   if(saveTimer||pendingSave){
+    if(!saveTimer)await saveToServer();
+    return;
+   }
+   await loadFromServer();
+   $("fileStatus").textContent="Updated from the other device";
+  }
+ }catch(err){}
+}
+function importFile(){ $("fileInput").click() }
+$("importBtn").onclick=importFile;$("sidebarImport").onclick=importFile;$("importBtn2").onclick=importFile;
+$("fileInput").onchange=async e=>{
+ const file=e.target.files[0];if(!file)return;
+ if(!window.XLSX){alert("Excel library could not load. Reopen this page from the host address.");return}
+ try{
+  applyWorkbook(XLSX.read(await file.arrayBuffer(),{type:"array"}),file.name);
+  if(serverMode)scheduleSave();
+  switchView("dashboard");
+ }catch(err){alert("Could not read this workbook. Please use the Chess_Tournament_Tracker.xlsx file or an Excel .xlsx workbook with Players and Round sheets.")}
+ e.target.value="";
+};
+$("exportBtn").onclick=exportFile;$("exportBtn2").onclick=exportFile;$("exportBtn3").onclick=exportFile;
+async function boot(){
+ const httpPage=location.protocol==="http:"||location.protocol==="https:";
+ if(httpPage){
+  try{
+   const res=await fetch("/api/info",{cache:"no-store"});
+   if(res.ok){
+    serverMode=true;
+    showHost(await res.json());
+    try{await loadFromServer()}catch(err){renderAll();$("fileStatus").textContent="Could not read Excel";$("notice").className="notice";$("notice").textContent="This PC could not read the Excel file. The built-in roster is on screen and nothing has been written yet. Refresh after the file is available."}
+    await loadRegistrations();
+    setInterval(watchWorkbook,1000);
+    document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible")watchWorkbook()});
+    return;
+   }
+  }catch(err){}
+ }
+ renderAll();
+}
+boot();
+</script>
+</body>
+</html>

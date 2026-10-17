@@ -1,0 +1,6 @@
+node_modules/
+.env
+*.xlsx
+*.bin
+Chess_Tournament_Live.incoming.xlsx
+_syntax_check.js
