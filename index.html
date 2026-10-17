@@ -79,7 +79,7 @@ button,input,select{font:inherit}button{cursor:pointer;border:1px solid var(--li
       <button class="primary" id="saveSettings">Save rules</button><span id="settingsMsg" class="muted"></span>
     </div>
   </section>
-  <footer>Local-first tournament helper. Keep a backup of the Excel workbook after each round.</footer>
+  <footer>Scores are stored in the database. Use Excel only to import a file or download a copy.</footer>
 </main>
 </div>
 <script src="xlsx.full.min.js"></script>
@@ -208,9 +208,9 @@ function enforcePlacements(){
  }
  if(!lastComplete)return;
  const nextNo=lastComplete+1;
- if(!rounds[nextNo])rounds[nextNo]=blankRound();
- if((rounds[nextNo]||[]).some(m=>m.result&&m.result!=="Not played"))return;
- applyMovement(nextNo,lastComplete);
+ const next=rounds[nextNo];
+ if(next&&next.some(m=>(m.p1||m.p2)||(m.result&&m.result!=="Not played")))return;
+ rounds[nextNo]=placeNextRound(lastComplete);
 }
 function placeNextRound(prevRound){
  const seats=movementSeats(prevRound);
@@ -354,7 +354,7 @@ function renderMatches(target){
  <td>${playerPicker(m.p2,i,"p2")}</td>
  <td><select data-i="${i}" data-k="result"><option value="" ${!m.result?'selected':''}>Not entered</option><option value="P1" ${m.result==="P1"?'selected':''}>Player 1 wins</option><option value="P2" ${m.result==="P2"?'selected':''}>Player 2 wins</option><option value="Draw" ${m.result==="Draw"?'selected':''}>Draw</option><option value="Not played" ${m.result==="Not played"?'selected':''}>Not played</option></select></td>
  <td><b>${m.result&&m.result!=="Not played"?playerPoints(m,1)+" – "+playerPoints(m,2):"—"}</b></td> <td class="muted">${esc(movementText(m))}</td>
- </tr>`).join("")}</tbody></table></div><p class="muted">Win at a table and you stay there. Lose at Table 6 and you move to Table 7, then 8, then 9, then 10, and from 10 back to 6. Tables are always listed 6, 7, 8, 9, 10. ${serverMode?"This is saved on this PC and on the phone.":"Export the workbook to keep an Excel copy."}</p>`;
+ </tr>`).join("")}</tbody></table></div><p class="muted">Win at a table and you stay there. Lose at Table 6 and you move to Table 7, then 8, then 9, then 10, and from 10 back to 6. Tables are always listed 6, 7, 8, 9, 10. ${serverMode?"This is saved in the database.":"Export the workbook to keep an Excel copy."}</p>`;
  $(target).querySelectorAll("select").forEach(sel=>sel.onchange=()=>{const m=rounds[activeRound][+sel.dataset.i];let value=sel.value;if(sel.dataset.k==="table")value=+value;m[sel.dataset.k]=value;if(sel.dataset.k==="result"||(m.result&&m.result!=="Not played"))reseatFollowingRound(activeRound);renderAll(false);scheduleSave()});
  bindPlayerPickers($(target));
 }
@@ -547,32 +547,22 @@ function exportFile(){
 }
 function showHost(info){
  const others=(info.urls||[]).filter(u=>!/localhost|127\.0\.0\.1/.test(u));
- if(info.storage==="mongodb"){
-  $("fileStatus").textContent="Saved in the database";
-  $("fileInfo").textContent="This page shows the tournament stored in the competition collection.";
-  $("notice").className="notice good";
-  $("notice").innerHTML="Every score on this page is the score stored in the database. A change here is written back to that same collection.";
-  hostNotice=$("notice").innerHTML;
-  if($("excelHelp")) $("excelHelp").innerHTML="This page reads and writes the tournament in the database. Download Excel copy saves a file on the device you are using.";
-  ["exportBtn","exportBtn2","exportBtn3"].forEach(id=>{if($(id))$(id).textContent="Download Excel copy"});
-  return;
- }
- $("fileStatus").textContent="Hosted on this PC";
- $("fileInfo").textContent=others.length?("Other devices on this Wi-Fi open "+others.join("   ")):("Connect this PC to Wi-Fi, then restart the host, to get an address for other devices.");
  const links=others.map(u=>`<a href="${esc(u)}">${esc(u)}</a>`).join("<br>");
+ $("fileStatus").textContent="Saved in the database";
+ $("fileInfo").textContent=others.length?("Other devices on this Wi-Fi open "+others.join("   ")):"This page shows the tournament stored in the database.";
  $("notice").className="notice good";
  $("notice").innerHTML=others.length
-  ?`Phones and laptops on the same Wi-Fi open:<br><b>${links}</b><br>A change on this PC shows on the phone, and a change on the phone shows on this PC. Both write into <b>Chess_Tournament_Live.xlsx</b> and into the database, so this page shows the same scores that are stored there.`
-  :`Scores are saved on this PC in <b>Chess_Tournament_Live.xlsx</b> and in the database. This page shows those scores.`;
+  ?`Phones and laptops on the same Wi-Fi open:<br><b>${links}</b><br>Every score is stored in the database. A change here shows on the other device. Excel is only for import and export.`
+  :`Every score on this page is stored in the database. Excel is only for import and export.`;
  hostNotice=$("notice").innerHTML;
- if($("excelHelp")) $("excelHelp").innerHTML="This page is hosted on this PC. Every score is written into <b>Chess_Tournament_Live.xlsx</b> and into the database. The original Chess_Tournament_Tracker.xlsx stays unchanged. Download Excel copy saves an extra file on the device you are using.";
+ if($("excelHelp")) $("excelHelp").innerHTML="Import an Excel file to load those pairings into the database, or download an Excel copy of what is stored there. The live scores stay in the database.";
  ["exportBtn","exportBtn2","exportBtn3"].forEach(id=>{if($(id))$(id).textContent="Download Excel copy"});
 }
 function scheduleSave(){
  if(!serverMode||applyingRemote)return;
  pendingSave=true;
  editGeneration++;
- $("fileStatus").textContent="Saving to Excel…";
+ $("fileStatus").textContent="Saving…";
  clearTimeout(saveTimer);
  saveTimer=setTimeout(saveToServer,300);
 }
@@ -593,13 +583,6 @@ async function saveToServer(){
    await loadFromServer();
    return;
   }
-  if(res.status===423){
-   pendingSave=true;
-   $("fileStatus").textContent="Close the Excel file to save";
-   $("notice").className="notice";
-   $("notice").innerHTML="Excel has <b>Chess_Tournament_Live.xlsx</b> open, so this PC cannot update it. Close that file in Excel. The scores stay on this page and will save once the file is closed.";
-   return;
-  }
   if(!res.ok)throw new Error("Save failed");
   const data=await res.json();
   if(editGeneration!==generationAtSend){
@@ -607,14 +590,13 @@ async function saveToServer(){
    return;
   }
   pendingSave=false;
-  await loadFromServer();
-  $("fileStatus").textContent=data.storage==="mongodb"
-   ?(data.merged?"Saved in the database and combined with the other device":"Saved in the database")
-   :(data.database?(data.merged?"Saved in Excel and the database, combined with the other device":"Saved in Excel and the database"):(data.merged?"Saved and combined with the other device":"Saved. The phone and this PC stay in sync."));
+  if(data.merged) await loadFromServer();
+  else revision=data.revision||revision;
+  $("fileStatus").textContent=data.merged?"Saved in the database and combined with the other device":"Saved in the database";
   if(hostNotice){$("notice").className="notice good";$("notice").innerHTML=hostNotice}
  }catch(err){
   pendingSave=true;
-  $("fileStatus").textContent="Could not save to Excel";
+  $("fileStatus").textContent="Could not save";
  }finally{
   saving=false;
   if(saveQueued){saveQueued=false;scheduleSave()}
@@ -659,7 +641,7 @@ async function loadRegistrations(){
 }
 async function loadFromServer(){
  const res=await fetch("/api/workbook",{cache:"no-store"});
- if(!res.ok)throw new Error("Could not read the Excel file on this PC.");
+ if(!res.ok)throw new Error("Could not read the tournament from the database.");
  const rev=res.headers.get("X-Workbook-Revision")||"";
  const name=res.headers.get("X-Workbook-Name")||"workbook.xlsx";
  const buf=await res.arrayBuffer();
@@ -707,8 +689,7 @@ async function boot(){
    if(res.ok){
     serverMode=true;
     showHost(await res.json());
-    try{await loadFromServer()}catch(err){renderAll();$("fileStatus").textContent="Could not read Excel";$("notice").className="notice";$("notice").textContent="This PC could not read the Excel file. The built-in roster is on screen and nothing has been written yet. Refresh after the file is available."}
-    await loadRegistrations();
+    try{await loadFromServer()}catch(err){renderAll();$("fileStatus").textContent="Could not read the database";$("notice").className="notice";$("notice").textContent="The page could not read the tournament from the database. Refresh once the database is available."}
     setInterval(watchWorkbook,1000);
     document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible")watchWorkbook()});
     return;

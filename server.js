@@ -4,35 +4,12 @@ const http = require("http");
 const fs = require("fs");
 const path = require("path");
 const os = require("os");
-const { execFileSync } = require("child_process");
 const dns = require("dns");
 try { dns.setServers(["8.8.8.8", "8.8.4.4"]); } catch (e) {}
 const store = require("./lib/store");
 
 const ROOT = __dirname;
 const PORT = Number(process.env.PORT) || 8080;
-const LIVE = path.join(ROOT, "Chess_Tournament_Live.xlsx");
-const SOURCE = path.join(ROOT, "Chess_Tournament_Tracker.xlsx");
-const XLSX = require("./xlsx.full.min.js");
-
-function registrationPath() {
-  const desktop = path.join(process.env.USERPROFILE || "", "OneDrive", "Desktop", "Asia_By_Gram_Form_Registrations_2026-10-17 (2).xlsx");
-  if (fs.existsSync(desktop)) return desktop;
-  const local = path.join(ROOT, "Registrations.xlsx");
-  if (fs.existsSync(local)) return local;
-  return "";
-}
-
-function registrationRows() {
-  const file = registrationPath();
-  if (!file) return null;
-  try {
-    const wb = XLSX.read(fs.readFileSync(file), { type: "buffer" });
-    return XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { defval: "" });
-  } catch (err) {
-    return null;
-  }
-}
 
 const MAX_BYTES = 20 * 1024 * 1024;
 
@@ -44,18 +21,6 @@ const MIME = {
   ".json": "application/json; charset=utf-8",
   ".xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 };
-
-function workbookPath() {
-  return fs.existsSync(LIVE) ? LIVE : SOURCE;
-}
-
-function revisionOf(file) {
-  try {
-    return String(fs.statSync(file).mtimeMs);
-  } catch {
-    return "";
-  }
-}
 
 function lanUrls(port) {
   const urls = [];
@@ -118,121 +83,25 @@ function enqueue(fn) {
   return run;
 }
 
-function isLocked(err) {
-  return err && (err.code === "EBUSY" || err.code === "EPERM" || err.code === "EACCES");
-}
-
-function runPowerShell(script, env) {
-  execFileSync("powershell.exe", ["-NoProfile", "-NonInteractive", "-Command", script], {
-    timeout: 25000,
-    windowsHide: true,
-    env: Object.assign({}, process.env, env || {})
-  });
-}
-
-function closeLiveWorkbook() {
-  try {
-    runPowerShell(`
-$ErrorActionPreference = 'Stop'
-try { $excel = [Runtime.InteropServices.Marshal]::GetActiveObject('Excel.Application') }
-catch { exit 3 }
-$found = $false
-foreach ($wb in @($excel.Workbooks)) {
-  if ($wb.Name -eq 'Chess_Tournament_Live.xlsx') { $wb.Close($false); $found = $true }
-}
-if (-not $found) { exit 2 }
-`);
-    return true;
-  } catch (err) {
-    return false;
-  }
-}
-
-function openLiveWorkbook() {
-  runPowerShell(`
-$ErrorActionPreference = 'Stop'
-try { $excel = [Runtime.InteropServices.Marshal]::GetActiveObject('Excel.Application') }
-catch { $excel = New-Object -ComObject Excel.Application }
-$excel.Visible = $true
-$excel.DisplayAlerts = $false
-$opened = $excel.Workbooks.Open($env:LIVE_XLSX)
-$opened.Activate()
-$excel.Visible = $true
-`, { LIVE_XLSX: LIVE });
-}
-
-function copyOverLive(tmp) {
-  let lastError;
-  for (let attempt = 0; attempt < 6; attempt++) {
-    try {
-      fs.copyFileSync(tmp, LIVE);
-      return;
-    } catch (err) {
-      lastError = err;
-      if (!isLocked(err)) throw err;
-      if (attempt === 0) closeLiveWorkbook();
-      Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 400);
-    }
-  }
-  throw lastError;
-}
-
-function saveBuffer(buf, clientRevision) {
+async function saveToDatabase(buf, clientRevision) {
   if (buf.length < 4 || buf[0] !== 0x50 || buf[1] !== 0x4b) {
     return { code: 400, body: { error: "That was not an Excel file." } };
   }
   let merged = false;
-  if (fs.existsSync(LIVE)) {
-    const currentRevision = revisionOf(LIVE);
-    if (clientRevision && clientRevision !== currentRevision) {
-      try {
-        buf = store.mergeWorkbooks(fs.readFileSync(LIVE), buf);
-        merged = true;
-      } catch (err) {
-        console.log("Kept the newest score file because the two copies could not be combined: " + err.message);
-      }
+  const current = await store.readWorkbook();
+  if (current && clientRevision && clientRevision !== current.revision) {
+    try {
+      buf = store.mergeWorkbooks(current.buffer, buf);
+      merged = true;
+    } catch (err) {
+      console.log("Kept the newest score file because the two copies could not be combined: " + err.message);
     }
   }
-  const tmp = path.join(ROOT, "Chess_Tournament_Live.incoming.xlsx");
-  let excelWasOpen = false;
-  try {
-    const fd = fs.openSync(LIVE, "r+");
-    fs.closeSync(fd);
-  } catch (err) {
-    if (isLocked(err)) {
-      closeLiveWorkbook();
-      excelWasOpen = true;
-    }
-  }
-  try {
-    fs.writeFileSync(tmp, buf);
-    copyOverLive(tmp);
-    if (excelWasOpen) {
-      try { openLiveWorkbook(); } catch (err) {
-        console.log("Saved the workbook, but Excel did not reopen it: " + err.message);
-      }
-    }
-  } catch (err) {
-    return {
-      code: isLocked(err) ? 423 : 500,
-      body: {
-        error: isLocked(err)
-          ? "Excel has Chess_Tournament_Live.xlsx open. Close it in Excel and the page will save again."
-          : "Could not save the workbook on this PC."
-      }
-    };
-  } finally {
-    try { fs.rmSync(tmp, { force: true }); } catch {}
-  }
+  const saved = await store.syncBuffer(buf);
   return {
     code: 200,
-    body: { ok: true, revision: revisionOf(LIVE), merged, file: "Chess_Tournament_Live.xlsx" }
+    body: { ok: true, revision: saved.revision, merged, database: true, storage: "mongodb", file: "competition" }
   };
-}
-
-async function syncCompetition() {
-  const saved = await store.syncFile(LIVE, registrationRows());
-  console.log("Saved the live tournament into the competition collection. Rounds stored: " + saved.rounds + ".");
 }
 
 const server = http.createServer(async (req, res) => {
@@ -240,69 +109,53 @@ const server = http.createServer(async (req, res) => {
     const url = new URL(req.url, "http://localhost");
 
     if (req.method === "GET" && url.pathname === "/api/revision") {
-      sendJson(res, 200, { revision: revisionOf(workbookPath()) });
+      const meta = await store.readMeta();
+      sendJson(res, 200, { revision: meta.revision || "" });
       return;
     }
 
     if (req.method === "GET" && url.pathname === "/api/info") {
       const port = server.address().port;
+      const meta = await store.readMeta();
       sendJson(res, 200, {
-        liveFile: "Chess_Tournament_Live.xlsx",
-        usingLive: fs.existsSync(LIVE),
+        liveFile: "competition",
+        usingLive: true,
         database: true,
-        storage: "excel+mongodb",
-        revision: revisionOf(workbookPath()),
+        storage: "mongodb",
+        revision: meta.revision || "",
+        rounds: meta.rounds,
+        players: meta.players,
         urls: ["http://localhost:" + port, ...lanUrls(port)]
       });
       return;
     }
 
     if (req.method === "GET" && url.pathname === "/api/registrations") {
-      const file = registrationPath();
-      if (!file) {
-        sendJson(res, 404, { error: "Registration file not found." });
-        return;
-      }
-      const wb = XLSX.read(fs.readFileSync(file), { type: "buffer" });
-      const rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { defval: "" });
-      sendJson(res, 200, rows);
+      sendJson(res, 200, await store.readRegistrations());
       return;
     }
 
     if ((req.method === "GET" || req.method === "HEAD") && url.pathname === "/api/workbook") {
-      const file = workbookPath();
-      if (!fs.existsSync(file)) {
-        sendJson(res, 404, { error: "No workbook on this PC yet." });
+      const saved = await store.readWorkbook();
+      if (!saved) {
+        sendJson(res, 404, { error: "No tournament is stored in the database yet." });
         return;
       }
-      const data = fs.readFileSync(file);
       res.writeHead(200, {
         "Content-Type": MIME[".xlsx"],
-        "Content-Length": data.length,
+        "Content-Length": saved.buffer.length,
         "Cache-Control": "no-store",
-        "X-Workbook-Revision": revisionOf(file),
-        "X-Workbook-Name": path.basename(file)
+        "X-Workbook-Revision": saved.revision,
+        "X-Workbook-Name": "Chess_Tournament_Live.xlsx"
       });
       if (req.method === "HEAD") res.end();
-      else res.end(data);
+      else res.end(saved.buffer);
       return;
     }
 
     if (req.method === "PUT" && url.pathname === "/api/workbook") {
       const buf = await readBody(req);
-      const result = await enqueue(async () => {
-        const saved = saveBuffer(buf, req.headers["x-workbook-revision"] || "");
-        if (saved.code === 200) {
-          try {
-            await syncCompetition();
-            saved.body.database = true;
-          } catch (err) {
-            saved.body.database = false;
-            console.log("Database save failed: " + err.message);
-          }
-        }
-        return saved;
-      });
+      const result = await enqueue(() => saveToDatabase(buf, req.headers["x-workbook-revision"] || ""));
       console.log("Save from " + (req.socket.remoteAddress || "a device") + " -> " + result.code);
       sendJson(res, result.code, result.body);
       return;
@@ -354,11 +207,11 @@ server.listen(PORT, "0.0.0.0", () => {
     console.log("No network address found. Connect this PC to Wi-Fi, then start the host again.");
   }
   console.log("");
-  console.log("Scores are written on this PC to: Chess_Tournament_Live.xlsx");
-  console.log("The original Chess_Tournament_Tracker.xlsx is left unchanged.");
-  console.log("Close Chess_Tournament_Live.xlsx in Excel while people are entering scores.");
+  console.log("Scores are stored in the database. Excel is only for import and export.");
   console.log("If Windows asks whether to allow Node.js on private networks, choose Allow.");
   console.log("Press Ctrl+C to stop hosting.");
   console.log("");
-  syncCompetition().catch((err) => console.log("Database save failed: " + err.message));
+  store.readMeta().then((meta) => {
+    console.log("Database is ready. Rounds stored: " + meta.rounds + ".");
+  }).catch((err) => console.log("Database read failed: " + err.message));
 });

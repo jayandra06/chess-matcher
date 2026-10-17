@@ -2,21 +2,17 @@ CHESS TOURNAMENT MANAGER — HOST ON THIS PC
 
 WHAT THIS DOES
 This computer hosts the page. Phones and laptops on the same Wi-Fi open it with an address.
-Scores are written on this PC into Chess_Tournament_Live.xlsx, which you open in Excel here.
-The original Chess_Tournament_Tracker.xlsx is the starting roster and is not overwritten.
+The live scores are stored in MongoDB. Excel is only for importing a workbook or downloading a copy.
 
 HOW TO START
 1. Double-click start-host.bat (or run: node server.js).
 2. Leave that window open while the tournament is running.
 3. On this PC, open http://localhost:8080
-4. The page shows the address other devices should open, for example http://192.168.1.20:8080
+4. The page shows the address other devices should open, for example http://192.168.1.7:8080
 5. If Windows asks to allow Node.js on private networks, choose Allow.
+6. For a Vercel deploy, set MONGODB_URI in the project settings. The same value is in .env on this PC.
 
-EXCEL ON THIS PC
-- Enter results in the browser. Within a second they are saved to Chess_Tournament_Live.xlsx in this folder.
-- You can open that file in Excel on this PC to view or print it.
-- Close it in Excel while people are still entering scores. Excel locks the file, and the page cannot save until you close it.
-- Download Excel copy still downloads a separate file onto whichever device clicked the button.
-
-STOP
-Close the start-host window, or press Ctrl+C in it.
+EXCEL
+- Import Excel loads a file into the database.
+- Download Excel copy saves a file on the device that clicked the button.
+- Opening an Excel file does not change the live scores.
